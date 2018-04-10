@@ -97,7 +97,7 @@ def regErr(dataSet):
     return var(dataSet[:, -1]) * shape(dataSet)[0]
 
 
-def chooseBestSplit(dataSet, leafType=majorLabel, errType=regErr, ops=(1, 4)):
+def chooseBestSplit(dataSet, subset, leafType=majorLabel, errType=regErr, ops=(1, 4)):
     tolS = ops[0]
     tolN = ops[1]
     if len(set(dataSet[:, -1].T.tolist()[0])) == 1:
@@ -107,7 +107,7 @@ def chooseBestSplit(dataSet, leafType=majorLabel, errType=regErr, ops=(1, 4)):
     bestS = inf
     bestIndex = 0
     bestValue = 0.0
-    for featIndex in range(n - 1):
+    for featIndex in subset:
         for splitVal in set(dataSet[:, featIndex].T.tolist()[0]):
             left, right = binSplitDataSet(dataSet, featIndex, splitVal)
             if (shape(left)[0] < tolN) or (shape(right)[0] < tolN): continue
@@ -124,8 +124,8 @@ def chooseBestSplit(dataSet, leafType=majorLabel, errType=regErr, ops=(1, 4)):
     return bestIndex, bestValue
 
 
-def createTree(dataSet, leafType=majorLabel, errType=regErr, ops=(1, 4)):
-    feature, value = chooseBestSplit(dataSet, leafType, errType, ops)
+def createTree(dataSet, subset, leafType=majorLabel, errType=regErr, ops=(1, 4)):
+    feature, value = chooseBestSplit(dataSet, subset, leafType, errType, ops)
     if feature == None: return value
     retTree = {}
     retTree['spIndex'] = feature
@@ -134,8 +134,8 @@ def createTree(dataSet, leafType=majorLabel, errType=regErr, ops=(1, 4)):
     retTree['num0'] = num0
     retTree['num1'] = num1
     leftDataSet, rightDataSet = binSplitDataSet(dataSet, feature, value)
-    retTree['left'] = createTree(leftDataSet, leafType, errType, ops)
-    retTree['right'] = createTree(rightDataSet, leafType, errType, ops)
+    retTree['left'] = createTree(leftDataSet,subset, leafType, errType, ops)
+    retTree['right'] = createTree(rightDataSet,subset, leafType, errType, ops)
     return retTree
 
 
@@ -248,11 +248,13 @@ def treeMean(tree):
         return tree['right']
 
 
-def calRate(tree, index, testDate):
-    m = len(testDate)
-    n = sum(power(testData[:][-1] - tree[index], 2))
-    rate = float(n) / (m + 1)
-    return rate
+def calRate(tree, index, testData):
+    m = len(testData)
+    if m != 0:
+        n = sum(power(testData[:][-1] - tree[index], 2))
+        rate = float(n) / m
+        return rate
+    else:return 0
 
 
 def CSVtoDict(fileName):
@@ -268,15 +270,57 @@ def CSVtoDict(fileName):
         dict[h] = list
     return dict
 
+def randomForest(dataSet):
+    dataSetGroup = bootstrap(dataSet, k=10)
+    treeList = []
+    for data in dataSetGroup:
+        trainData, testData = splitData(data)
+        subset = selectSubset(data)
+        tree = createTree(trainData, subset, ops=(-1, 1))
+        tree = cutTree(tree, testData)
+        treeList.append(tree)
+    print(treeList)
+
+
+
+def selectSubset(dataSet):
+    n = dataSet.shape[1]
+    k = dataSet.shape[1]-1
+    newIndex = []
+    l = list(range(n-1))
+    for i in range(k):
+        j = choice(l)
+        newIndex.append(j)
+        l.remove(j)
+    newIndex.sort()
+    return newIndex
+
+
+def bootstrap(dataSet, k = 10):
+    dataSetGroup = []
+    m = dataSet.shape[0]
+    dataSet = dataSet.tolist()
+    l = list(range(m))
+    for i in range(k):
+        currentMat = []
+        for j in range(m):
+            index = choice(l)
+            currentMat.append(dataSet[index])
+        currentMat = mat(currentMat)
+        dataSetGroup.append(currentMat)
+    return dataSetGroup
+
+
 
 fileName = 'train.csv'
 dataSet = loadTrainData(fileName)
+'''
 trainData, testData = splitData(dataSet)
-tree = createTree(trainData, ops=(-1, 1))
+subset = selectSubset(dataSet)
+tree = createTree(trainData, subset, ops=(-1, 1))
 print(tree)
 tree = cutTree(tree, testData)
 print(tree)
-
 fileName = 'test.csv'
 testDataSet = loadTestData(fileName)
 surList = printSurList(testDataSet, tree)
@@ -286,3 +330,5 @@ dict['Survived'] = surList
 print(dict)
 csv = DataFrame(dict)
 csv.to_csv(fileName, index=False)
+'''
+randomForest(dataSet)
