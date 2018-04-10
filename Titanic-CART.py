@@ -3,6 +3,7 @@ from numpy import *
 from random import *
 from csv import *
 
+
 def loadTrainData(fileName):
     trainData = read_csv(fileName)
     dataSet = []
